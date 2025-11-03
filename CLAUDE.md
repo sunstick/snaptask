@@ -112,17 +112,31 @@ build = [
 
 ### Changing the Analysis Prompt
 
-The analysis prompt is in:
-- `snaptask.py` (line ~103) - OCR mode
-- `snaptask_vision.py` (line ~51) - Vision mode
+**User-Facing (Recommended):**
 
-Both ask the LLM to provide:
+Prompts are automatically created in `~/.snap/prompts/` on first run:
+- `~/.snap/prompts/ocr_prompt.txt` - OCR mode
+- `~/.snap/prompts/vision_prompt.txt` - Vision mode
+
+Users can edit these files directly - no code changes or rebuild needed!
+
+**Developer-Facing:**
+
+Default prompts are defined in:
+- `snaptask.py` - `create_default_prompts()` function (line ~141)
+- `snaptask_vision.py` - `create_default_prompts()` function (line ~89)
+
+The prompts ask for:
 1. Current Focus
 2. Context/Application
 3. Action Items
 4. Insights
 
-Modify these sections to customize the analysis output.
+**How it works:**
+1. On first run, default prompts are written to `~/.snap/prompts/`
+2. Subsequent runs load from these files
+3. Users can edit the files to customize behavior
+4. If files are deleted, defaults are recreated
 
 ### Adding Dependencies
 

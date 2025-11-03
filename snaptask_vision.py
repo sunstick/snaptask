@@ -26,6 +26,16 @@ def encode_image(image_path):
     with open(image_path, "rb") as image_file:
         return base64.b64encode(image_file.read()).decode('utf-8')
 
+def load_prompt(prompt_name, default_prompt):
+    """Load prompt from config file or use default"""
+    prompts_dir = os.path.expanduser('~/.snap/prompts')
+    prompt_file = os.path.join(prompts_dir, prompt_name)
+
+    if os.path.exists(prompt_file):
+        with open(prompt_file, 'r') as f:
+            return f.read().strip()
+    return default_prompt
+
 def analyze_screenshot(image_path, api_key=None):
     """Send screenshot to OpenAI for analysis"""
     if api_key is None:
@@ -39,6 +49,18 @@ def analyze_screenshot(image_path, api_key=None):
     # Encode the image
     base64_image = encode_image(image_path)
 
+    # Default prompt
+    default_prompt = """Analyze this screenshot and provide:
+1. What is the user currently focused on or working on?
+2. What application/context is visible?
+3. What are potential action items or next steps based on what you see?
+4. Any patterns or insights about the work being done?
+
+Be concise but insightful."""
+
+    # Load custom prompt or use default
+    vision_prompt = load_prompt('vision_prompt.txt', default_prompt)
+
     # Send to OpenAI
     response = client.chat.completions.create(
         model="gpt-4o",  # Using GPT-4 with vision
@@ -48,13 +70,7 @@ def analyze_screenshot(image_path, api_key=None):
                 "content": [
                     {
                         "type": "text",
-                        "text": """Analyze this screenshot and provide:
-1. What is the user currently focused on or working on?
-2. What application/context is visible?
-3. What are potential action items or next steps based on what you see?
-4. Any patterns or insights about the work being done?
-
-Be concise but insightful."""
+                        "text": vision_prompt
                     },
                     {
                         "type": "image_url",
@@ -70,11 +86,31 @@ Be concise but insightful."""
 
     return response.choices[0].message.content
 
+def create_default_prompts():
+    """Create default prompt files if they don't exist"""
+    prompts_dir = os.path.expanduser('~/.snap/prompts')
+    os.makedirs(prompts_dir, exist_ok=True)
+
+    vision_prompt_file = os.path.join(prompts_dir, 'vision_prompt.txt')
+    if not os.path.exists(vision_prompt_file):
+        default_vision_prompt = """Analyze this screenshot and provide:
+1. What is the user currently focused on or working on?
+2. What application/context is visible?
+3. What are potential action items or next steps based on what you see?
+4. Any patterns or insights about the work being done?
+
+Be concise but insightful."""
+        with open(vision_prompt_file, 'w') as f:
+            f.write(default_vision_prompt)
+
 def main():
     """Main execution flow"""
     # Create ~/.snap directory if it doesn't exist
     screenshots_dir = os.path.expanduser('~/.snap')
     os.makedirs(screenshots_dir, exist_ok=True)
+
+    # Create default prompt files if they don't exist
+    create_default_prompts()
 
     # Generate timestamp filename
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')

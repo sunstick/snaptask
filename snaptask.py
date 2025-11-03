@@ -75,6 +75,16 @@ def extract_text_with_vision(image_path):
         print(f"Error extracting text with Vision: {e}")
         return None
 
+def load_prompt(prompt_name, default_prompt):
+    """Load prompt from config file or use default"""
+    prompts_dir = os.path.expanduser('~/.snap/prompts')
+    prompt_file = os.path.join(prompts_dir, prompt_name)
+
+    if os.path.exists(prompt_file):
+        with open(prompt_file, 'r') as f:
+            return f.read().strip()
+    return default_prompt
+
 def analyze_text_with_llm(ocr_result, api_key=None):
     """Send extracted text to GPT-4o-mini for analysis"""
     if api_key is None:
@@ -90,17 +100,8 @@ def analyze_text_with_llm(ocr_result, api_key=None):
 
     text = ocr_result['full_text']
 
-    # Send to OpenAI GPT-4o-mini (much cheaper than GPT-4o)
-    response = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[
-            {
-                "role": "system",
-                "content": "You are an AI assistant that analyzes screen content to help users understand what they're working on and identify action items."
-            },
-            {
-                "role": "user",
-                "content": f"""Below is text extracted from a user's screenshot. Analyze it and provide:
+    # Default prompt
+    default_prompt = """Below is text extracted from a user's screenshot. Analyze it and provide:
 
 1. **Current Focus**: What is the user currently working on or focused on?
 2. **Context/Application**: Based on the text, what application or context might this be?
@@ -113,6 +114,22 @@ Be concise but insightful. If the text is insufficient or unclear, say so.
 EXTRACTED TEXT:
 {text}
 ---"""
+
+    # Load custom prompt or use default
+    prompt_template = load_prompt('ocr_prompt.txt', default_prompt)
+    user_prompt = prompt_template.replace('{text}', text)
+
+    # Send to OpenAI GPT-4o-mini (much cheaper than GPT-4o)
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {
+                "role": "system",
+                "content": "You are an AI assistant that analyzes screen content to help users understand what they're working on and identify action items."
+            },
+            {
+                "role": "user",
+                "content": user_prompt
             }
         ],
         max_tokens=400,
@@ -121,11 +138,37 @@ EXTRACTED TEXT:
 
     return response.choices[0].message.content
 
+def create_default_prompts():
+    """Create default prompt files if they don't exist"""
+    prompts_dir = os.path.expanduser('~/.snap/prompts')
+    os.makedirs(prompts_dir, exist_ok=True)
+
+    ocr_prompt_file = os.path.join(prompts_dir, 'ocr_prompt.txt')
+    if not os.path.exists(ocr_prompt_file):
+        default_ocr_prompt = """Below is text extracted from a user's screenshot. Analyze it and provide:
+
+1. **Current Focus**: What is the user currently working on or focused on?
+2. **Context/Application**: Based on the text, what application or context might this be?
+3. **Action Items**: What are potential next steps or tasks to complete?
+4. **Insights**: Any patterns, blockers, or noteworthy observations?
+
+Be concise but insightful. If the text is insufficient or unclear, say so.
+
+---
+EXTRACTED TEXT:
+{text}
+---"""
+        with open(ocr_prompt_file, 'w') as f:
+            f.write(default_ocr_prompt)
+
 def main():
     """Main execution flow"""
     # Create ~/.snap directory if it doesn't exist
     screenshots_dir = os.path.expanduser('~/.snap')
     os.makedirs(screenshots_dir, exist_ok=True)
+
+    # Create default prompt files if they don't exist
+    create_default_prompts()
 
     # Generate timestamp filename
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')

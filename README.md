@@ -112,10 +112,13 @@ snaptask --help       # Show help
 
 ## Output Files
 
-All captures saved to `~/.snap/`:
+All captures and configuration saved to `~/.snap/`:
 
 ```
 ~/.snap/
+├── prompts/
+│   ├── ocr_prompt.txt                      # OCR mode prompt (editable)
+│   └── vision_prompt.txt                   # Vision mode prompt (editable)
 ├── screenshot_20241103_143022.png          # Original capture
 ├── screenshot_20241103_143022_ocr.json     # Extracted text (OCR mode)
 └── screenshot_20241103_143022_analysis.txt # AI analysis
@@ -164,9 +167,42 @@ snaptask/
 
 ## Configuration
 
-### Change Analysis Prompt
+### Customize Analysis Prompts
 
-Edit the prompt in `snaptask.py` (line ~103) or `snaptask_vision.py` (line ~51) to customize insights.
+SnapTask automatically creates editable prompt files on first run:
+
+- **`~/.snap/prompts/ocr_prompt.txt`** - OCR mode prompt
+- **`~/.snap/prompts/vision_prompt.txt`** - Vision mode prompt
+
+**To customize:**
+
+```bash
+# Edit the prompts
+nano ~/.snap/prompts/ocr_prompt.txt
+nano ~/.snap/prompts/vision_prompt.txt
+
+# Changes take effect immediately - no rebuild needed!
+```
+
+**Example custom prompt (focus on code review):**
+
+```
+Analyze this code and provide:
+
+1. **Code Quality**: Issues, bugs, or improvements
+2. **Best Practices**: Are standards being followed?
+3. **Security**: Any potential vulnerabilities?
+4. **Action Items**: What should be fixed?
+
+Be technical and specific.
+
+---
+EXTRACTED TEXT:
+{text}
+---
+```
+
+**Note:** For OCR mode, include `{text}` placeholder. For Vision mode, just write your prompt.
 
 ### Switch to Claude
 
