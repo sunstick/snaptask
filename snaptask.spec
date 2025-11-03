@@ -5,11 +5,14 @@
 block_cipher = None
 
 a = Analysis(
-    ['snaptask_cli.py', 'snaptask.py', 'snaptask_vision.py'],
+    ['snaptask_cli.py'],  # Only the CLI is the entry point
     pathex=[],
     binaries=[],
     datas=[],
     hiddenimports=[
+        # SnapTask modules (imported by CLI)
+        'snaptask',
+        'snaptask_vision',
         # PyObjC frameworks (required for macOS Vision and screen capture)
         'Vision',
         'Quartz',
