@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Claude Code when working with code in this repository.
 
 ## Project Overview
 
@@ -8,14 +8,14 @@ SnapTask is a macOS productivity tool that captures screenshots and analyzes the
 
 ## Architecture
 
-The project consists of three main Python scripts with a CLI wrapper:
+Modern Python project managed with **uv** (fast package manager).
 
 ### Core Components
 
-1. **snaptask_cli.py** - CLI entry point that routes to the appropriate backend
+1. **snaptask_cli.py** - CLI entry point
    - Provides `--vision` flag to switch between modes
-   - Checks for OPENAI_API_KEY environment variable
-   - Installed globally as `snaptask` command via symlink
+   - Imports and calls main() from backend modules directly
+   - Installed as `snaptask` command via pyproject.toml
 
 2. **snaptask.py** - OCR mode (default, 15x cheaper)
    - Uses Apple Vision framework for local text extraction
@@ -35,81 +35,107 @@ All captures saved to `~/.snap/`:
 - `screenshot_YYYYMMDD_HHMMSS_ocr.json` - Extracted text (OCR mode only)
 - `screenshot_YYYYMMDD_HHMMSS_analysis.txt` - AI analysis
 
-### Installation System
+### Dependency Management
 
-- **install.sh** - Main installer that:
-  - Installs Python dependencies from requirements.txt
-  - Creates symlink `/usr/local/bin/snaptask → snaptask_cli.py`
-  - Creates `~/.snap/` directory
-  - Validates Python 3 and pip3 availability
-
-- **uninstall.sh** - Removes `/usr/local/bin/snaptask` symlink only (preserves data)
-
-## Key Dependencies
-
-```
-openai>=1.0.0                    # OpenAI API client
-pyobjc-framework-Quartz          # macOS screencapture
-pyobjc-framework-Vision          # Apple Vision OCR
-```
+**Everything is managed with uv:**
+- `pyproject.toml` - Project configuration and dependencies
+- `uv.lock` - Locked dependency versions
+- `.venv/` - Virtual environment (created by `uv sync`)
 
 ## Development Commands
 
-### Installation & Setup
+### Setup & Running
+
 ```bash
-# First-time setup (from the repository directory)
-./install.sh                     # Install SnapTask and dependencies
-./uninstall.sh                   # Remove snaptask command
+# First-time setup
+uv sync                      # Install all dependencies
 
-# Manual installation check
-python3 -c "import Vision; import Quartz; print('Dependencies OK')"
-```
-
-**Note**: The repository can be located anywhere on the filesystem. The install.sh script auto-detects its location and creates a symlink to `/usr/local/bin/snaptask`.
-
-### Running SnapTask
-```bash
-snaptask                         # Run with OCR (default)
-snaptask --vision                # Run with Vision API
-snaptask -v                      # Same as --vision
-snaptask --help                  # Show help
+# Run the tool
+uv run snaptask              # OCR mode
+uv run snaptask --vision     # Vision mode
+uv run snaptask --help       # Show help
 
 # Direct script execution (for testing)
-python3 snaptask.py              # Test OCR version
-python3 snaptask_vision.py       # Test Vision version
+uv run python snaptask.py    # Test OCR version
+uv run python snaptask_vision.py  # Test Vision version
+```
+
+### Building Binary
+
+```bash
+# Build single-file executable (17MB)
+./build_binary.sh            # Creates dist/snaptask
+
+# The binary includes:
+# - Python 3.13.2
+# - All dependencies (openai, pyobjc, etc.)
+# - All three Python modules
+
+# Users only need:
+# - macOS
+# - OPENAI_API_KEY environment variable
 ```
 
 ### Testing & Debugging
+
 ```bash
-# Check if command is installed
-which snaptask
-command -v snaptask
+# Check dependencies
+uv pip list
 
-# Test dependencies
-python3 -c "import Vision; print('Vision OK')"
-python3 -c "import Quartz; print('Quartz OK')"
-python3 -c "from openai import OpenAI; print('OpenAI OK')"
-
-# View logs (if using keyboard shortcut)
-cat /tmp/screenshot_analyzer.log
-
-# Inspect output files
+# View output files
 ls -lh ~/.snap/
 cat ~/.snap/screenshot_*_analysis.txt
-cat ~/.snap/screenshot_*_ocr.json
+
+# Test binary
+dist/snaptask --help
+OPENAI_API_KEY=test dist/snaptask  # Will fail at API call, but tests imports
+```
+
+## Key Dependencies
+
+Defined in `pyproject.toml`:
+
+```toml
+dependencies = [
+    "openai>=1.0.0",                 # OpenAI API client
+    "pyobjc-framework-Quartz",       # macOS screencapture
+    "pyobjc-framework-Vision",       # Apple Vision OCR
+]
+
+[project.optional-dependencies]
+build = [
+    "pyinstaller>=6.0.0",            # Binary packaging
+]
 ```
 
 ## Code Modification Guidelines
 
 ### Changing the Analysis Prompt
 
-The analysis prompt is in both `snaptask.py` (line ~103) and `snaptask_vision.py` (line ~51). They ask the LLM to provide:
+The analysis prompt is in:
+- `snaptask.py` (line ~103) - OCR mode
+- `snaptask_vision.py` (line ~51) - Vision mode
+
+Both ask the LLM to provide:
 1. Current Focus
 2. Context/Application
 3. Action Items
 4. Insights
 
 Modify these sections to customize the analysis output.
+
+### Adding Dependencies
+
+```bash
+# Add a new dependency
+uv add package-name
+
+# Add a dev/build dependency
+uv add --optional build package-name
+
+# Update lockfile
+uv lock
+```
 
 ### Switching LLM Providers
 
@@ -144,23 +170,56 @@ Required:
 export OPENAI_API_KEY="sk-..."
 ```
 
-The API key is checked by:
-1. `install.sh` during installation
-2. `snaptask_cli.py` when running
-3. Both core scripts when making API calls
+The API key is checked by `snaptask_cli.py` and both core scripts.
 
 ## Common Issues
 
-1. **"No module named 'Vision'"** - Run: `pip3 install pyobjc-framework-Vision`
-2. **"OpenAI API key not found"** - Set OPENAI_API_KEY in ~/.zshrc
-3. **No text extracted** - Check `~/.snap/*_ocr.json` for raw OCR output
-4. **Vision mode for visual content** - Use `snaptask --vision` for screenshots with charts, designs, or complex layouts
+1. **"command not found: snaptask"** - Use `uv run snaptask` when running from source
+2. **"No module named 'openai'"** - Run: `uv sync` to install dependencies
+3. **"OpenAI API key not found"** - Set OPENAI_API_KEY in environment
+4. **No text extracted** - Check `~/.snap/*_ocr.json` for raw OCR output
+5. **Vision mode for visual content** - Use `snaptask --vision` for screenshots with charts, designs, or complex layouts
+6. **Build fails** - Run `uv sync --extra build` to install PyInstaller
+
+## Binary Build Process
+
+1. `./build_binary.sh` checks for uv
+2. `uv sync --extra build` installs all dependencies + PyInstaller in `.venv`
+3. `uv run pyinstaller snaptask.spec` builds the binary
+4. Result: `dist/snaptask` (17MB self-contained executable)
+
+The spec file (`snaptask.spec`) tells PyInstaller to:
+- Bundle all 3 Python modules
+- Include PyObjC frameworks
+- Include OpenAI and dependencies
+- Create single-file executable
 
 ## Keyboard Shortcut Setup
 
-Users can set up via:
-1. macOS Shortcuts app (recommended) - run `snaptask` command
-2. Automator workflow - use `setup_shortcut.sh` (legacy)
-3. Third-party tools (BetterTouchTool, Karabiner)
+Users set up via:
+1. macOS Shortcuts app (recommended) - run `snaptask` command or binary path
+2. BetterTouchTool
+3. Alfred workflows
 
 See `KEYBOARD_SHORTCUT_SETUP.md` for detailed instructions.
+
+## Project Files
+
+### Core
+- `snaptask_cli.py` - CLI entry point
+- `snaptask.py` - OCR implementation
+- `snaptask_vision.py` - Vision implementation
+
+### Configuration
+- `pyproject.toml` - Project config, dependencies, entry points
+- `uv.lock` - Locked dependencies
+- `snaptask.spec` - PyInstaller configuration
+
+### Scripts
+- `build_binary.sh` - Build single-file executable (17MB)
+- `uninstall.sh` - Remove snaptask from /usr/local/bin
+
+### Documentation
+- `README.md` - Main user documentation
+- `CLAUDE.md` - This file
+- `KEYBOARD_SHORTCUT_SETUP.md` - Keyboard shortcut instructions

@@ -6,29 +6,19 @@ SnapTask CLI - Command-line interface for SnapTask
 import argparse
 import sys
 import os
-import subprocess
-
-# Get the directory where SnapTask is installed
-SNAPTASK_DIR = os.path.dirname(os.path.abspath(__file__))
 
 def run_snaptask(use_vision=False):
     """Run SnapTask with specified mode"""
     if use_vision:
-        script = os.path.join(SNAPTASK_DIR, 'snaptask_vision.py')
         print("🎨 Running SnapTask (Vision mode)...")
+        # Import and run vision mode
+        import snaptask_vision
+        snaptask_vision.main()
     else:
-        script = os.path.join(SNAPTASK_DIR, 'snaptask.py')
         print("📝 Running SnapTask (OCR mode)...")
-
-    try:
-        subprocess.run([sys.executable, script], check=True)
-    except subprocess.CalledProcessError as e:
-        print(f"❌ Error running SnapTask: {e}")
-        sys.exit(1)
-    except FileNotFoundError:
-        print(f"❌ SnapTask script not found at: {script}")
-        print("   Run the installer first from the SnapTask directory: ./install.sh")
-        sys.exit(1)
+        # Import and run OCR mode
+        import snaptask
+        snaptask.main()
 
 def main():
     """Main CLI entry point"""

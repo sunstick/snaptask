@@ -1,0 +1,28 @@
+[project]
+name = "snaptask"
+version = "1.0.0"
+description = "macOS productivity tool that captures screenshots and analyzes them using AI"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "openai>=1.0.0",
+    "pyobjc-framework-Quartz",
+    "pyobjc-framework-Vision",
+]
+
+[project.scripts]
+snaptask = "snaptask_cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.uv]
+dev-dependencies = [
+    "pyinstaller>=6.0.0",
+]
+
+[project.optional-dependencies]
+build = [
+    "pyinstaller>=6.0.0",
+]
