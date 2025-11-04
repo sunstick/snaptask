@@ -4,24 +4,21 @@ Screenshot Analyzer (OCR Version) - Uses Apple Vision for OCR + GPT-4o-mini for 
 Much cheaper than full vision API (~15x cost reduction)
 """
 
-import subprocess
 import os
-from datetime import datetime
+import json
 from openai import OpenAI
-import Quartz
 import Vision
 from Foundation import NSURL, NSData
-import json
-
-def capture_screenshot(output_path):
-    """Capture screenshot using macOS screencapture command"""
-    try:
-        subprocess.run(['screencapture', '-x', '-t', 'png', output_path], check=True)
-        print(f"Screenshot saved to: {output_path}")
-        return True
-    except subprocess.CalledProcessError as e:
-        print(f"Error capturing screenshot: {e}")
-        return False
+from common import (
+    capture_screenshot,
+    load_prompt,
+    run_agent_loop,
+    create_prompt_file,
+    get_system_message,
+    save_analysis,
+    generate_screenshot_path,
+    DEFAULT_OCR_PROMPT
+)
 
 def extract_text_with_vision(image_path):
     """Extract text from image using Apple Vision framework"""
@@ -75,18 +72,9 @@ def extract_text_with_vision(image_path):
         print(f"Error extracting text with Vision: {e}")
         return None
 
-def load_prompt(prompt_name, default_prompt):
-    """Load prompt from config file or use default"""
-    prompts_dir = os.path.expanduser('~/.snap/prompts')
-    prompt_file = os.path.join(prompts_dir, prompt_name)
-
-    if os.path.exists(prompt_file):
-        with open(prompt_file, 'r') as f:
-            return f.read().strip()
-    return default_prompt
 
 def analyze_text_with_llm(ocr_result, api_key=None):
-    """Send extracted text to GPT-4o-mini for analysis"""
+    """Send extracted text to GPT-4o-mini for analysis with file management tools"""
     if api_key is None:
         api_key = os.getenv('OPENAI_API_KEY')
 
@@ -99,84 +87,46 @@ def analyze_text_with_llm(ocr_result, api_key=None):
         return "No text found in screenshot."
 
     text = ocr_result['full_text']
-
-    # Default prompt
-    default_prompt = """Below is text extracted from a user's screenshot. Analyze it and provide:
-
-1. **Current Focus**: What is the user currently working on or focused on?
-2. **Context/Application**: Based on the text, what application or context might this be?
-3. **Action Items**: What are potential next steps or tasks to complete?
-4. **Insights**: Any patterns, blockers, or noteworthy observations?
-
-Be concise but insightful. If the text is insufficient or unclear, say so.
-
----
-EXTRACTED TEXT:
-{text}
----"""
+    snap_dir = os.path.expanduser('~/.snap')
 
     # Load custom prompt or use default
-    prompt_template = load_prompt('ocr_prompt.txt', default_prompt)
+    prompt_template = load_prompt('ocr_prompt.txt', DEFAULT_OCR_PROMPT)
     user_prompt = prompt_template.replace('{text}', text)
 
-    # Send to OpenAI GPT-4o-mini (much cheaper than GPT-4o)
-    response = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[
-            {
-                "role": "system",
-                "content": "You are an AI assistant that analyzes screen content to help users understand what they're working on and identify action items."
-            },
-            {
-                "role": "user",
-                "content": user_prompt
-            }
-        ],
-        max_tokens=400,
-        temperature=0.7
-    )
+    # Initialize conversation
+    messages = [
+        {
+            "role": "system",
+            "content": get_system_message()
+        },
+        {
+            "role": "user",
+            "content": user_prompt
+        }
+    ]
 
-    return response.choices[0].message.content
+    # Run agent loop
+    return run_agent_loop(client, "gpt-4o-mini", messages, snap_dir)
 
 def create_default_prompts():
     """Create default prompt files if they don't exist"""
     prompts_dir = os.path.expanduser('~/.snap/prompts')
-    os.makedirs(prompts_dir, exist_ok=True)
-
     ocr_prompt_file = os.path.join(prompts_dir, 'ocr_prompt.txt')
-    if not os.path.exists(ocr_prompt_file):
-        default_ocr_prompt = """Below is text extracted from a user's screenshot. Analyze it and provide:
-
-1. **Current Focus**: What is the user currently working on or focused on?
-2. **Context/Application**: Based on the text, what application or context might this be?
-3. **Action Items**: What are potential next steps or tasks to complete?
-4. **Insights**: Any patterns, blockers, or noteworthy observations?
-
-Be concise but insightful. If the text is insufficient or unclear, say so.
-
----
-EXTRACTED TEXT:
-{text}
----"""
-        with open(ocr_prompt_file, 'w') as f:
-            f.write(default_ocr_prompt)
+    create_prompt_file(ocr_prompt_file, DEFAULT_OCR_PROMPT)
 
 def main():
     """Main execution flow"""
-    # Create ~/.snap directory if it doesn't exist
-    screenshots_dir = os.path.expanduser('~/.snap')
-    os.makedirs(screenshots_dir, exist_ok=True)
-
     # Create default prompt files if they don't exist
     create_default_prompts()
 
-    # Generate timestamp filename
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    screenshot_path = os.path.join(screenshots_dir, f'screenshot_{timestamp}.png')
+    # Generate screenshot path
+    screenshot_path = generate_screenshot_path()
 
     # Capture screenshot
     print("📸 Capturing screenshot...")
+    print("   → Drag to select area, or press SPACE to select window, ESC to cancel")
     if not capture_screenshot(screenshot_path):
+        print("   Screenshot canceled or failed")
         return
 
     # Extract text using Apple Vision
@@ -205,9 +155,7 @@ def main():
         print("="*60)
 
         # Save analysis
-        analysis_path = screenshot_path.replace('.png', '_analysis.txt')
-        with open(analysis_path, 'w') as f:
-            f.write(analysis)
+        analysis_path = save_analysis(screenshot_path, analysis)
         print(f"\n💾 Saved analysis to: {analysis_path}")
 
     except Exception as e:
