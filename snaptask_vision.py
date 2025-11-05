@@ -5,20 +5,6 @@ Screenshot Analyzer - Captures screen and sends to OpenAI for analysis
 
 import base64
 import os
-from openai import OpenAI
-from common import (
-    capture_screenshot,
-    load_prompt,
-    run_agent_loop,
-    create_prompt_file,
-    get_system_message,
-    save_analysis,
-    generate_screenshot_path,
-    ensure_env_file_exists,
-    load_env_config,
-    show_notification,
-    DEFAULT_VISION_PROMPT
-)
 
 
 def encode_image(image_path):
@@ -29,6 +15,10 @@ def encode_image(image_path):
 
 def analyze_screenshot(image_path, api_key=None):
     """Send screenshot to OpenAI for analysis with file management tools"""
+    # Lazy import - only load when needed
+    from openai import OpenAI
+    from common import load_prompt, run_agent_loop, get_system_message, DEFAULT_VISION_PROMPT
+
     if api_key is None:
         api_key = os.getenv('OPENAI_API_KEY')
 
@@ -72,12 +62,24 @@ def analyze_screenshot(image_path, api_key=None):
 
 def create_default_prompts():
     """Create default prompt files if they don't exist"""
+    from common import create_prompt_file, DEFAULT_VISION_PROMPT
+
     prompts_dir = os.path.expanduser('~/.snap/prompts')
     vision_prompt_file = os.path.join(prompts_dir, 'vision_prompt.txt')
     create_prompt_file(vision_prompt_file, DEFAULT_VISION_PROMPT)
 
 def main():
     """Main execution flow"""
+    # Import only what's needed for initial setup and screenshot
+    from common import (
+        ensure_env_file_exists,
+        load_env_config,
+        generate_screenshot_path,
+        capture_screenshot,
+        save_analysis,
+        show_notification
+    )
+
     # Ensure .env file exists and is configured
     if not ensure_env_file_exists():
         return  # Setup needed, exit gracefully
@@ -91,7 +93,7 @@ def main():
     # Generate screenshot path
     screenshot_path = generate_screenshot_path()
 
-    # Capture screenshot
+    # Capture screenshot - THIS HAPPENS FAST NOW!
     print("🎨 Capturing screenshot...")
     print("   → Drag to select area, or press SPACE to select window, ESC to cancel")
     if not capture_screenshot(screenshot_path):

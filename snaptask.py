@@ -6,25 +6,13 @@ Much cheaper than full vision API (~15x cost reduction)
 
 import os
 import json
-from openai import OpenAI
-import Vision
-from Foundation import NSURL, NSData
-from common import (
-    capture_screenshot,
-    load_prompt,
-    run_agent_loop,
-    create_prompt_file,
-    get_system_message,
-    save_analysis,
-    generate_screenshot_path,
-    ensure_env_file_exists,
-    load_env_config,
-    show_notification,
-    DEFAULT_OCR_PROMPT
-)
 
 def extract_text_with_vision(image_path):
     """Extract text from image using Apple Vision framework"""
+    # Lazy import - only load when needed
+    import Vision
+    from Foundation import NSURL, NSData
+
     try:
         # Load image
         image_url = NSURL.fileURLWithPath_(image_path)
@@ -78,6 +66,10 @@ def extract_text_with_vision(image_path):
 
 def analyze_text_with_llm(ocr_result, api_key=None):
     """Send extracted text to GPT-4o-mini for analysis with file management tools"""
+    # Lazy import - only load when needed
+    from openai import OpenAI
+    from common import load_prompt, run_agent_loop, get_system_message, DEFAULT_OCR_PROMPT
+
     if api_key is None:
         api_key = os.getenv('OPENAI_API_KEY')
 
@@ -113,12 +105,24 @@ def analyze_text_with_llm(ocr_result, api_key=None):
 
 def create_default_prompts():
     """Create default prompt files if they don't exist"""
+    from common import create_prompt_file, DEFAULT_OCR_PROMPT
+
     prompts_dir = os.path.expanduser('~/.snap/prompts')
     ocr_prompt_file = os.path.join(prompts_dir, 'ocr_prompt.txt')
     create_prompt_file(ocr_prompt_file, DEFAULT_OCR_PROMPT)
 
 def main():
     """Main execution flow"""
+    # Import only what's needed for initial setup and screenshot
+    from common import (
+        ensure_env_file_exists,
+        load_env_config,
+        generate_screenshot_path,
+        capture_screenshot,
+        save_analysis,
+        show_notification
+    )
+
     # Ensure .env file exists and is configured
     if not ensure_env_file_exists():
         return  # Setup needed, exit gracefully
@@ -132,7 +136,7 @@ def main():
     # Generate screenshot path
     screenshot_path = generate_screenshot_path()
 
-    # Capture screenshot
+    # Capture screenshot - THIS HAPPENS FAST NOW!
     print("📸 Capturing screenshot...")
     print("   → Drag to select area, or press SPACE to select window, ESC to cancel")
     if not capture_screenshot(screenshot_path):
