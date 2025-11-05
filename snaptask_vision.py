@@ -14,6 +14,9 @@ from common import (
     get_system_message,
     save_analysis,
     generate_screenshot_path,
+    ensure_env_file_exists,
+    load_env_config,
+    show_notification,
     DEFAULT_VISION_PROMPT
 )
 
@@ -75,6 +78,13 @@ def create_default_prompts():
 
 def main():
     """Main execution flow"""
+    # Ensure .env file exists and is configured
+    if not ensure_env_file_exists():
+        return  # Setup needed, exit gracefully
+
+    # Load environment from ~/.snap/.env
+    load_env_config()
+
     # Create default prompt files if they don't exist
     create_default_prompts()
 
@@ -102,8 +112,13 @@ def main():
         analysis_path = save_analysis(screenshot_path, analysis)
         print(f"\n💾 Saved analysis to: {analysis_path}")
 
+        # Show notification with analysis summary (truncate if too long)
+        notification_text = analysis[:200] + "..." if len(analysis) > 200 else analysis
+        show_notification("SnapTask Analysis", notification_text)
+
     except Exception as e:
         print(f"❌ Error analyzing screenshot: {e}")
+        show_notification("SnapTask Error", f"Analysis failed: {str(e)[:100]}")
 
 if __name__ == "__main__":
     main()
