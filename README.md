@@ -19,14 +19,16 @@ SnapTask is a macOS productivity tool that analyzes your screen to help you unde
 ### Option 1: Download Binary (Easiest)
 
 ```bash
-# Download the binary (from releases or build it yourself)
-./snaptask --help
-
-# Set up your API key
-export OPENAI_API_KEY="sk-your-key"
-
-# Run it
+# Download or build the binary
 ./snaptask
+
+# First run prompts for API key:
+# 🔧 SnapTask First-Time Setup
+# Enter your OpenAI API key: [paste key]
+# ✅ Configuration saved to ~/.snap/.env
+
+# Interactive screenshot selection appears
+# Analysis shown in notification + saved to ~/.snap/
 ```
 
 ### Option 2: Run from Source
@@ -47,30 +49,42 @@ uv sync
 uv run snaptask
 ```
 
-### Set Up Keyboard Shortcut
+### Set Up Keyboard Shortcut (Recommended)
+
+**Using Shortcuts App (Built-in, Free):**
 
 1. Open **Shortcuts** app
 2. Click **+** to create new shortcut
 3. Add action: **Run Shell Script**
-4. Enter: `snaptask` (or `/full/path/to/snaptask` for binary)
-5. Click **(i)** → Check **"Use as Quick Action"**
-6. Add keyboard shortcut (e.g., **⌘⇧A** or **⌃⌥S**)
-7. Name it **"SnapTask"**
+4. Enter: `/full/path/to/dist/snaptask` (e.g., `/Users/you/snaptask/dist/snaptask`)
+5. Right-click shortcut → **Add Keyboard Shortcut** → Press your key combo (e.g., **⌘⇧S**)
+6. Name it **"SnapTask"**
 
-See [KEYBOARD_SHORTCUT_SETUP.md](KEYBOARD_SHORTCUT_SETUP.md) for alternative methods.
+**First run from Shortcuts:**
+- You'll get a notification: "Setup Required - Created ~/.snap/.env..."
+- Edit `~/.snap/.env` and add your OpenAI API key
+- Press hotkey again → it works!
+
+**Alternative methods:** See [KEYBOARD_SHORTCUT_SETUP.md](KEYBOARD_SHORTCUT_SETUP.md) for Automator, Hammerspoon, or paid tools (BetterTouchTool, Keyboard Maestro).
 
 ## How It Works
 
 ```
 Press hotkey
     ↓
-Capture screenshot (macOS screencapture)
+Interactive selection (drag area or spacebar for window)
     ↓
 Extract text locally (Apple Vision OCR)
     ↓
-Analyze with GPT-4o-mini
+Analyze with GPT-4o-mini (agentic with file tools)
     ↓
-Save to ~/.snap/
+LLM reads existing todo.md & focused.md
+    ↓
+LLM updates files intelligently (deduplicates)
+    ↓
+Notification shows analysis summary
+    ↓
+All saved to ~/.snap/
 ```
 
 ## Usage
@@ -116,13 +130,21 @@ All captures and configuration saved to `~/.snap/`:
 
 ```
 ~/.snap/
+├── .env                                    # Your OpenAI API key (auto-created)
+├── todo.md                                 # AI-maintained todo list (auto-updated!)
+├── focused.md                              # Focus tracking with timestamps
 ├── prompts/
 │   ├── ocr_prompt.txt                      # OCR mode prompt (editable)
 │   └── vision_prompt.txt                   # Vision mode prompt (editable)
 ├── screenshot_20241103_143022.png          # Original capture
 ├── screenshot_20241103_143022_ocr.json     # Extracted text (OCR mode)
-└── screenshot_20241103_143022_analysis.txt # AI analysis
+└── screenshot_20241103_143022_analysis.txt # Full AI analysis
 ```
+
+**Key files:**
+- **`.env`** - Created on first run, stores your API key securely
+- **`todo.md`** - Automatically updated by AI agent (unique todos only)
+- **`focused.md`** - Tracks what you're working on over time
 
 ## Development
 
@@ -159,6 +181,7 @@ snaptask/
 ├── snaptask_cli.py        # CLI entry point
 ├── snaptask.py            # OCR mode implementation
 ├── snaptask_vision.py     # Vision mode implementation
+├── common.py              # Shared utilities (tools, notifications, config)
 ├── pyproject.toml         # Dependencies & project config
 ├── build_binary.sh        # Binary build script
 ├── snaptask.spec          # PyInstaller config
@@ -243,10 +266,14 @@ If using binary, ensure it's in PATH or use full path.
 
 ### "OpenAI API key not found"
 
-```bash
-export OPENAI_API_KEY="sk-your-key"
-# Add to ~/.zshrc to persist
-```
+**For terminal usage:**
+- Run `snaptask` once - it will prompt for your key interactively
+- Or manually edit `~/.snap/.env` and add: `OPENAI_API_KEY=sk-your-key`
+
+**For Shortcuts/GUI usage:**
+- First run creates `~/.snap/.env` with placeholder
+- Edit the file: `nano ~/.snap/.env`
+- Replace `your-api-key-here` with your actual key
 
 ### "No text extracted"
 
@@ -269,19 +296,22 @@ uv sync --extra build
 
 ## Roadmap
 
+- [x] Todo.md integration (auto-add action items) ✅
+- [x] Focus time tracking ✅
+- [x] Native notifications ✅
+- [x] Interactive screenshot selection ✅
 - [ ] Change detection (skip unchanged screens)
 - [ ] Auto-scheduling (capture every N seconds)
-- [ ] Todo.md integration (auto-add action items)
 - [ ] Local LLM support (Ollama) - zero cost
 - [ ] Activity timeline visualization
-- [ ] Focus time tracking
 - [ ] Daily/weekly summaries
 
 ## Credits
 
 Built with:
-- [Apple Vision Framework](https://developer.apple.com/documentation/vision)
-- [OpenAI GPT-4o-mini](https://openai.com/index/gpt-4o-mini-advancing-cost-efficient-intelligence/)
+- [Apple Vision Framework](https://developer.apple.com/documentation/vision) - Local OCR
+- [OpenAI GPT-4o-mini](https://openai.com/index/gpt-4o-mini-advancing-cost-efficient-intelligence/) - AI analysis with function calling
+- [python-dotenv](https://github.com/theskumar/python-dotenv) - Environment configuration
 - [uv](https://docs.astral.sh/uv/) - Modern Python package manager
 - [PyInstaller](https://pyinstaller.org/) - Binary packaging
 
